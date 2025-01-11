@@ -7,7 +7,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Default values
-DEFAULT_VOICE="af_bella"
+DEFAULT_VOICE="am_adam"
 DEFAULT_TEXT="Hello, this is a test of the MoriTTS system."
 DEFAULT_OUTPUT="output.wav"
 VENV_NAME="venv_py311"
