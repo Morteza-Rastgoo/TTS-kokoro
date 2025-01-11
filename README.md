@@ -6,15 +6,17 @@ A text-to-speech implementation using the Kokoro model, an 82M parameter TTS mod
 
 - Multiple voice packs support (American/British, Male/Female)
 - High-quality speech synthesis
-- Easy-to-use Python interface
+- Easy-to-use command-line interface
+- Cross-platform support (macOS, Linux, Windows)
 - Audio normalization for consistent volume
 
 ## Prerequisites
 
 - Python 3.7 or higher
 - espeak-ng (for phonemization)
+- Git (for cloning the repository)
 
-## Installation
+## Quick Start
 
 1. Clone the repository:
 ```bash
@@ -22,34 +24,45 @@ git clone https://github.com/Morteza-Rastgoo/TTS-kokoro.git
 cd TTS-kokoro
 ```
 
-2. Create a virtual environment and activate it:
-```bash
-python -m venv venv_py311
-source venv_py311/bin/activate  # On Windows: venv_py311\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-4. Install espeak-ng:
-- On macOS: `brew install espeak`
-- On Ubuntu/Debian: `sudo apt-get install espeak-ng`
-- On Windows: Download from [espeak-ng releases](https://github.com/espeak-ng/espeak-ng/releases)
-
-5. Download the Kokoro model and voice packs:
+2. Download the model and voice packs:
 - Create a `models/Kokoro-82M` directory
 - Download the model and voice packs from [Hugging Face](https://huggingface.co/hexgrad/Kokoro-82M)
 
-## Usage
-
-Run the main script:
+3. Run the setup script:
 ```bash
-python src/main.py
+chmod +x setup.sh
+./setup.sh
 ```
 
-The script will generate speech from the default text and save it as `output.wav`.
+The script will:
+- Detect your OS and install required dependencies
+- Set up a Python virtual environment
+- Install Python packages
+- Generate a test audio file
+
+## Usage
+
+The setup script provides a command-line interface for text-to-speech synthesis:
+
+```bash
+./setup.sh [options]
+
+Options:
+  -t, --text TEXT        Text to synthesize
+  -v, --voice VOICE      Voice pack to use
+  -o, --output FILE      Output WAV file
+  -h, --help            Show help message
+
+Examples:
+  # Use default settings
+  ./setup.sh
+
+  # Specify custom text and voice
+  ./setup.sh -t "Hello, world!" -v am_adam
+
+  # Save to a specific file
+  ./setup.sh -t "Welcome!" -v af_sarah -o welcome.wav
+```
 
 ## Available Voice Packs
 
@@ -58,10 +71,25 @@ The script will generate speech from the default text and save it as `output.wav
 - British Female: `bf_emma`, `bf_isabella`
 - British Male: `bm_george`, `bm_lewis`
 
-To change the voice, modify the voice pack path in `src/main.py`:
-```python
-base_voicepack = torch.load("models/Kokoro-82M/voices/VOICE_PACK_NAME.pt", map_location=device)
+## Manual Installation
+
+If you prefer to set up manually:
+
+1. Create a virtual environment:
+```bash
+python -m venv venv_py311
+source venv_py311/bin/activate  # On Windows: venv_py311\Scripts\activate
 ```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Install espeak-ng:
+- macOS: `brew install espeak`
+- Ubuntu/Debian: `sudo apt-get install espeak-ng`
+- Windows: Download from [espeak-ng releases](https://github.com/espeak-ng/espeak-ng/releases)
 
 ## License
 
