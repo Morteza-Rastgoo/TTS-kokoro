@@ -1,10 +1,11 @@
 # MoriTTS
 
-A text-to-speech implementation using a state-of-the-art neural TTS model, providing high-quality speech synthesis.
+A text-to-speech implementation using state-of-the-art neural TTS models, providing high-quality speech synthesis.
 
 ## Features
 
 - Multiple voice packs support (American/British, Male/Female)
+- Persian language support via Mozilla TTS integration
 - High-quality speech synthesis
 - Adjustable speech speed control (0.5x to 2.0x)
 - Easy-to-use command-line interface
@@ -12,6 +13,18 @@ A text-to-speech implementation using a state-of-the-art neural TTS model, provi
 - Cross-platform support (macOS, Linux, Windows)
 - Audio normalization for consistent volume
 - Smart setup process that only installs when needed
+
+## Language Support
+
+Currently supported languages:
+- English (American and British variants)
+- Persian/Farsi (using Mozilla TTS integration)
+
+Each language has its own script:
+- `moritts.sh` - For English TTS
+- `persian_tts.sh` - For Persian/Farsi TTS
+
+Note: While the system can process text in other languages, it is primarily trained on English and may not produce natural-sounding speech for other languages. For best results, use English text input.
 
 ## Prerequisites
 
@@ -46,11 +59,12 @@ The script will:
 
 ## Usage
 
-MoriTTS provides two scripts:
+MoriTTS provides three scripts:
 - `setup.sh` - For first-time setup and installation
-- `moritts.sh` - For running the TTS system
+- `moritts.sh` - For English text-to-speech
+- `persian_tts.sh` - For Persian text-to-speech
 
-### Basic Usage
+### English TTS Usage
 
 ```bash
 # Make the script executable (first time only)
@@ -70,6 +84,22 @@ chmod +x moritts.sh
 
 # Adjust speech speed (faster)
 ./moritts.sh -t "Quick announcement" -s 1.5
+```
+
+### Persian TTS Usage
+
+```bash
+# Make the script executable (first time only)
+chmod +x persian_tts.sh
+
+# Basic usage with Persian text
+./persian_tts.sh -t "سلام دنیا"
+
+# Read Persian text from file
+./persian_tts.sh -f persian_story.txt
+
+# Custom output with speed control
+./persian_tts.sh -t "متن به زبان فارسی" -o farsi.wav -s 0.9
 ```
 
 ### Using Text Files
@@ -141,27 +171,33 @@ pip install -r requirements.txt
 
 ## Python API
 
-You can also use MoriTTS in your Python code:
+You can use MoriTTS in your Python code for both English and Persian:
 
 ```python
+# English TTS
 from src.main import MoriTTS
 
-# Initialize the TTS system
+# Initialize English TTS
 tts = MoriTTS()
 
-# Basic synthesis
+# Basic English synthesis
 tts.synthesize(
     text="Your text here",
     voice_name="af_bella",
     output_file="output.wav"
 )
 
-# Synthesis with speed control
-tts.synthesize(
-    text="This will be spoken slowly",
-    voice_name="am_adam",
-    output_file="slow.wav",
-    speed=0.8
+# Persian TTS
+from src.persian_tts import PersianTTS
+
+# Initialize Persian TTS
+persian_tts = PersianTTS()
+
+# Persian synthesis
+persian_tts.synthesize(
+    text="متن به زبان فارسی",
+    output_file="farsi.wav",
+    speed=1.0
 )
 ```
 

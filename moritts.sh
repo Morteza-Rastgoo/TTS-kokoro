@@ -1,137 +1,80 @@
 #!/bin/bash
 
+# Default values
+TEXT=""
+FILE=""
+OUTPUT="output.wav"
+SPEED=1.0
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Default values
-DEFAULT_VOICE="am_adam"
-DEFAULT_TEXT="Hello, this is a test of the MoriTTS system."
-DEFAULT_OUTPUT="output.wav"
-DEFAULT_SPEED="0.8"
-VENV_NAME="venv_py311"
-
-# Function to print with color
+# Function to print colored messages
 print_color() {
     color=$1
     message=$2
-    printf "${color}${message}${NC}\n"
+    echo -e "${color}${message}${NC}"
 }
 
-# Function to display help
+# Show help message
 show_help() {
-    echo "Usage: $0 [options]"
+    echo "Usage: $0 [-t TEXT] [-f FILE] [-o OUTPUT] [-s SPEED]"
     echo
     echo "Options:"
-    echo "  -t, --text TEXT        Text to synthesize (default: '$DEFAULT_TEXT')"
-    echo "  -f, --file FILE        Text file to read input from (overrides -t)"
-    echo "  -v, --voice VOICE      Voice pack to use (default: '$DEFAULT_VOICE')"
-    echo "  -o, --output FILE      Output WAV file (default: '$DEFAULT_OUTPUT')"
-    echo "  -s, --speed SPEED      Speech speed (default: $DEFAULT_SPEED)"
-    echo "                         0.5 = half speed, 1.0 = normal, 2.0 = double speed"
-    echo "  -h, --help            Show this help message"
-    echo
-    echo "Available voices:"
-    echo "  American Female: af_bella, af_sarah, af_nicole, af_sky"
-    echo "  American Male: am_adam, am_michael"
-    echo "  British Female: bf_emma, bf_isabella"
-    echo "  British Male: bm_george, bm_lewis"
+    echo "  -t TEXT    Text to synthesize (in Persian)"
+    echo "  -f FILE    Input text file (in Persian)"
+    echo "  -o OUTPUT  Output WAV file (default: output.wav)"
+    echo "  -s SPEED   Speech speed (0.5-2.0, default: 1.0)"
+    echo "  -h         Show this help message"
     echo
     echo "Examples:"
-    echo "  # Basic usage with text"
-    echo "  $0 -t \"Hello, world!\""
-    echo
-    echo "  # Read from file with slower speed"
-    echo "  $0 -f input.txt -v af_sarah -s 0.8"
-    echo
-    echo "  # Custom output with faster speed"
-    echo "  $0 -f story.txt -v am_adam -o story.wav -s 1.2"
+    echo "  $0 -t 'سلام'"
+    echo "  $0 -f input.txt -o output.wav"
+    echo "  $0 -t 'سلام' -s 1.5"
+    exit 1
 }
 
 # Parse command line arguments
-TEXT="$DEFAULT_TEXT"
-INPUT_FILE=""
-VOICE="$DEFAULT_VOICE"
-OUTPUT="$DEFAULT_OUTPUT"
-SPEED="$DEFAULT_SPEED"
-
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -t|--text)
-            TEXT="$2"
-            shift 2
-            ;;
-        -f|--file)
-            INPUT_FILE="$2"
-            shift 2
-            ;;
-        -v|--voice)
-            VOICE="$2"
-            shift 2
-            ;;
-        -o|--output)
-            OUTPUT="$2"
-            shift 2
-            ;;
-        -s|--speed)
-            SPEED="$2"
-            shift 2
-            ;;
-        -h|--help)
-            show_help
-            exit 0
-            ;;
-        *)
-            print_color "$RED" "Unknown option: $1"
-            show_help
-            exit 1
-            ;;
+while getopts "t:f:o:s:h" opt; do
+    case $opt in
+        t) TEXT="$OPTARG" ;;
+        f) FILE="$OPTARG" ;;
+        o) OUTPUT="$OPTARG" ;;
+        s) SPEED="$OPTARG" ;;
+        h) show_help ;;
+        \?) show_help ;;
     esac
 done
 
-# Validate speed parameter
-if ! [[ "$SPEED" =~ ^[0-9]*\.?[0-9]+$ ]]; then
-    print_color "$RED" "Speed must be a positive number"
-    exit 1
+# Check if we have text to process
+if [ -z "$TEXT" ] && [ -z "$FILE" ]; then
+    print_color "$RED" "Error: Please provide either text (-t) or a file (-f)"
+    show_help
 fi
 
+# If file is provided, read its contents
+if [ -n "$FILE" ]; then
+    if [ ! -f "$FILE" ]; then
+        print_color "$RED" "Error: File not found: $FILE"
+        exit 1
+    fi
+    print_color "$GREEN" "Reading text from: $FILE"
+    TEXT=$(cat "$FILE")
+fi
+
+# Validate speed
 if (( $(echo "$SPEED <= 0" | bc -l) )); then
-    print_color "$RED" "Speed must be greater than 0"
+    print_color "$RED" "Error: Speed must be greater than 0"
     exit 1
-fi
-
-# Check if virtual environment exists
-if [ ! -d "$VENV_NAME" ]; then
-    print_color "$RED" "Virtual environment not found. Please run setup.sh first."
-    exit 1
-fi
-
-# Handle text file input
-if [ -n "$INPUT_FILE" ]; then
-    if [ ! -f "$INPUT_FILE" ]; then
-        print_color "$RED" "Input file not found: $INPUT_FILE"
-        exit 1
-    fi
-    TEXT=$(cat "$INPUT_FILE")
-    if [ -z "$TEXT" ]; then
-        print_color "$RED" "Input file is empty: $INPUT_FILE"
-        exit 1
-    fi
 fi
 
 # Activate virtual environment
-source $VENV_NAME/bin/activate
+source venv_py311/bin/activate
 
-# Run the TTS system
-print_color "$GREEN" "Running MoriTTS..."
-if [ -n "$INPUT_FILE" ]; then
-    print_color "$YELLOW" "Reading text from: $INPUT_FILE"
-fi
-if [ "$SPEED" != "1.0" ]; then
-    print_color "$YELLOW" "Speech speed: ${SPEED}x"
-fi
-python3 src/main.py -t "$TEXT" -v "$VOICE" -o "$OUTPUT" -s "$SPEED"
+# Run TTS
+print_color "$GREEN" "Running Persian TTS..."
+python3 src/persian_tts.py "$TEXT" -o "$OUTPUT" -s "$SPEED"
 
 print_color "$GREEN" "Done!" 

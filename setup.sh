@@ -11,6 +11,7 @@ DEFAULT_VOICE="af_bella"
 DEFAULT_TEXT="Hello, this is a test of the MoriTTS system."
 DEFAULT_OUTPUT="output.wav"
 VENV_NAME="venv_py311"
+SETUP_STATE_FILE=".moritts_setup_complete"
 
 # Function to print with color
 print_color() {
@@ -80,10 +81,14 @@ check_python() {
     fi
     
     version=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-    if (( $(echo "$version < 3.7" | bc -l) )); then
+    major=$(echo $version | cut -d. -f1)
+    minor=$(echo $version | cut -d. -f2)
+    
+    if [ "$major" -lt 3 ] || ([ "$major" -eq 3 ] && [ "$minor" -lt 7 ]); then
         print_color "$RED" "Python version must be 3.7 or higher (found $version)"
         return 1
     fi
+    print_color "$GREEN" "Found Python $version"
     return 0
 }
 
@@ -128,6 +133,38 @@ check_model_files() {
         print_color "$YELLOW" "https://huggingface.co/hexgrad/Kokoro-82M"
         return 1
     fi
+    return 0
+}
+
+# Function to check Persian TTS dependencies
+check_persian_tts() {
+    print_color "$YELLOW" "Checking Persian TTS dependencies..."
+    
+    # Create Persian model directory if needed
+    PERSIAN_MODEL_DIR="models/persian-tts"
+    if [ ! -d "$PERSIAN_MODEL_DIR" ]; then
+        mkdir -p "$PERSIAN_MODEL_DIR"
+    fi
+    
+    # Check if TTS is installed with correct version
+    if ! pip freeze | grep -q "TTS>=0.22.0"; then
+        print_color "$YELLOW" "Installing/Updating Persian TTS dependencies..."
+        pip install "TTS>=0.22.0"
+        if [ $? -ne 0 ]; then
+            print_color "$RED" "Failed to install TTS. Please try manually:"
+            print_color "$RED" "pip install 'TTS>=0.22.0'"
+            return 1
+        fi
+    fi
+
+    # Test TTS import
+    if ! python3 -c "from TTS.api import TTS" 2>/dev/null; then
+        print_color "$RED" "TTS installation appears broken. Please reinstall:"
+        print_color "$RED" "pip uninstall TTS && pip install 'TTS>=0.22.0'"
+        return 1
+    fi
+
+    print_color "$GREEN" "Persian TTS dependencies installed successfully!"
     return 0
 }
 
@@ -205,6 +242,23 @@ if ! check_model_files; then
     SETUP_NEEDED=1
 fi
 
+print_color "$YELLOW" "Setting up Persian TTS support..."
+if ! check_persian_tts; then
+    SETUP_NEEDED=1
+else
+    # Test Persian TTS functionality
+    print_color "$YELLOW" "Testing Persian TTS..."
+    TEST_TEXT="سلام"
+    TEST_OUTPUT="test_output.wav"
+    if python3 src/persian_tts.py -t "$TEST_TEXT" -o "$TEST_OUTPUT" 2>/dev/null; then
+        rm -f "$TEST_OUTPUT"
+        print_color "$GREEN" "Persian TTS test successful!"
+    else
+        print_color "$RED" "Persian TTS test failed. Please check the installation."
+        SETUP_NEEDED=1
+    fi
+fi
+
 if [ $SETUP_NEEDED -eq 1 ]; then
     print_color "$RED" "Please fix the above issues and try again"
     exit 1
@@ -213,5 +267,8 @@ fi
 # Run the TTS system
 print_color "$GREEN" "Running MoriTTS..."
 python3 src/main.py -t "$TEXT" -v "$VOICE" -o "$OUTPUT"
+
+# Mark setup as complete
+touch "$SETUP_STATE_FILE"
 
 print_color "$GREEN" "Done!" 
