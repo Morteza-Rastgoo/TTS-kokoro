@@ -10,6 +10,7 @@ NC='\033[0m' # No Color
 DEFAULT_VOICE="am_adam"
 DEFAULT_TEXT="Hello, this is a test of the MoriTTS system."
 DEFAULT_OUTPUT="output.wav"
+DEFAULT_SPEED="0.8"
 VENV_NAME="venv_py311"
 
 # Function to print with color
@@ -28,6 +29,8 @@ show_help() {
     echo "  -f, --file FILE        Text file to read input from (overrides -t)"
     echo "  -v, --voice VOICE      Voice pack to use (default: '$DEFAULT_VOICE')"
     echo "  -o, --output FILE      Output WAV file (default: '$DEFAULT_OUTPUT')"
+    echo "  -s, --speed SPEED      Speech speed (default: $DEFAULT_SPEED)"
+    echo "                         0.5 = half speed, 1.0 = normal, 2.0 = double speed"
     echo "  -h, --help            Show this help message"
     echo
     echo "Available voices:"
@@ -40,11 +43,11 @@ show_help() {
     echo "  # Basic usage with text"
     echo "  $0 -t \"Hello, world!\""
     echo
-    echo "  # Read from file"
-    echo "  $0 -f input.txt -v af_sarah"
+    echo "  # Read from file with slower speed"
+    echo "  $0 -f input.txt -v af_sarah -s 0.8"
     echo
-    echo "  # Custom output file"
-    echo "  $0 -f story.txt -v am_adam -o story.wav"
+    echo "  # Custom output with faster speed"
+    echo "  $0 -f story.txt -v am_adam -o story.wav -s 1.2"
 }
 
 # Parse command line arguments
@@ -52,6 +55,7 @@ TEXT="$DEFAULT_TEXT"
 INPUT_FILE=""
 VOICE="$DEFAULT_VOICE"
 OUTPUT="$DEFAULT_OUTPUT"
+SPEED="$DEFAULT_SPEED"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -71,6 +75,10 @@ while [[ $# -gt 0 ]]; do
             OUTPUT="$2"
             shift 2
             ;;
+        -s|--speed)
+            SPEED="$2"
+            shift 2
+            ;;
         -h|--help)
             show_help
             exit 0
@@ -82,6 +90,17 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Validate speed parameter
+if ! [[ "$SPEED" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+    print_color "$RED" "Speed must be a positive number"
+    exit 1
+fi
+
+if (( $(echo "$SPEED <= 0" | bc -l) )); then
+    print_color "$RED" "Speed must be greater than 0"
+    exit 1
+fi
 
 # Check if virtual environment exists
 if [ ! -d "$VENV_NAME" ]; then
@@ -110,6 +129,9 @@ print_color "$GREEN" "Running MoriTTS..."
 if [ -n "$INPUT_FILE" ]; then
     print_color "$YELLOW" "Reading text from: $INPUT_FILE"
 fi
-python3 src/main.py -t "$TEXT" -v "$VOICE" -o "$OUTPUT"
+if [ "$SPEED" != "1.0" ]; then
+    print_color "$YELLOW" "Speech speed: ${SPEED}x"
+fi
+python3 src/main.py -t "$TEXT" -v "$VOICE" -o "$OUTPUT" -s "$SPEED"
 
 print_color "$GREEN" "Done!" 

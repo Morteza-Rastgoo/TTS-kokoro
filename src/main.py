@@ -41,9 +41,38 @@ class MoriTTS:
             audio = audio / max_val * 0.9
         return audio
     
-    def synthesize(self, text: str, voice_name: str, output_file: str) -> Tuple[np.ndarray, str]:
-        """Synthesize text to speech using specified voice"""
+    @staticmethod
+    def adjust_speed(audio: np.ndarray, speed: float) -> np.ndarray:
+        """Adjust the speed of the audio without changing pitch
+        
+        Args:
+            audio: Input audio array
+            speed: Speed factor (0.5 = half speed, 2.0 = double speed)
+        """
+        if speed == 1.0:
+            return audio
+            
+        # Calculate new length
+        new_length = int(len(audio) / speed)
+        
+        # Use linear interpolation for resampling
+        old_indices = np.arange(len(audio))
+        new_indices = np.linspace(0, len(audio) - 1, new_length)
+        return np.interp(new_indices, old_indices, audio)
+    
+    def synthesize(self, text: str, voice_name: str, output_file: str, speed: float = 1.0) -> Tuple[np.ndarray, str]:
+        """Synthesize text to speech using specified voice and speed
+        
+        Args:
+            text: Text to synthesize
+            voice_name: Name of the voice to use
+            output_file: Output WAV file path
+            speed: Speech speed (0.5 = half speed, 1.0 = normal, 2.0 = double speed)
+        """
         try:
+            if speed <= 0:
+                raise ValueError("Speed must be greater than 0")
+                
             voicepack = self.load_voice(voice_name)
             print(f"Voice pack '{voice_name}' loaded successfully")
             
@@ -52,6 +81,11 @@ class MoriTTS:
             
             if audio is None:
                 raise ValueError("Failed to generate audio")
+            
+            # Adjust speed if needed
+            if speed != 1.0:
+                print(f"Adjusting speech speed to {speed}x")
+                audio = self.adjust_speed(audio, speed)
                 
             audio = self.normalize_audio(audio)
             sf.write(output_file, audio, 24000)
@@ -74,11 +108,13 @@ def main():
                       help="Voice pack to use")
     parser.add_argument("-o", "--output", default="output.wav",
                       help="Output WAV file")
+    parser.add_argument("-s", "--speed", type=float, default=1.0,
+                      help="Speech speed (0.5 = half speed, 1.0 = normal, 2.0 = double speed)")
     
     args = parser.parse_args()
     
     tts = MoriTTS()
-    tts.synthesize(args.text, args.voice, args.output)
+    tts.synthesize(args.text, args.voice, args.output, args.speed)
 
 if __name__ == "__main__":
     main() 
