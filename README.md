@@ -7,6 +7,7 @@ A text-to-speech implementation using a state-of-the-art neural TTS model, provi
 - Multiple voice packs support (American/British, Male/Female)
 - High-quality speech synthesis
 - Easy-to-use command-line interface
+- Support for both direct text input and text files
 - Cross-platform support (macOS, Linux, Windows)
 - Audio normalization for consistent volume
 - Smart setup process that only installs when needed
@@ -44,30 +45,47 @@ The script will:
 
 ## Usage
 
-The setup script provides a command-line interface for text-to-speech synthesis:
+MoriTTS provides two scripts:
+- `setup.sh` - For first-time setup and installation
+- `moritts.sh` - For running the TTS system
+
+### Basic Usage
 
 ```bash
-./setup.sh [options]
+# Make the script executable (first time only)
+chmod +x moritts.sh
 
+# Basic usage with text
+./moritts.sh -t "Hello, world!"
+
+# Use a different voice
+./moritts.sh -t "Welcome!" -v am_adam
+
+# Save to a specific file
+./moritts.sh -t "Greetings" -v af_sarah -o greeting.wav
+```
+
+### Using Text Files
+
+For longer texts, you can use a text file as input:
+
+```bash
+# Read from a text file
+./moritts.sh -f story.txt -v af_bella
+
+# Read from file with custom output
+./moritts.sh -f input.txt -v bm_george -o output.wav
+```
+
+### Command-Line Options
+
+```bash
 Options:
   -t, --text TEXT        Text to synthesize
+  -f, --file FILE        Text file to read input from (overrides -t)
   -v, --voice VOICE      Voice pack to use
   -o, --output FILE      Output WAV file
   -h, --help            Show help message
-  --force               Force reinstallation of dependencies
-
-Examples:
-  # Use default settings
-  ./setup.sh
-
-  # Specify custom text and voice
-  ./setup.sh -t "Hello, world!" -v am_adam
-
-  # Save to a specific file
-  ./setup.sh -t "Welcome!" -v af_sarah -o welcome.wav
-
-  # Force reinstallation
-  ./setup.sh --force
 ```
 
 ## Available Voice Packs
@@ -96,6 +114,24 @@ pip install -r requirements.txt
 - macOS: `brew install espeak`
 - Ubuntu/Debian: `sudo apt-get install espeak-ng`
 - Windows: Download from [espeak-ng releases](https://github.com/espeak-ng/espeak-ng/releases)
+
+## Python API
+
+You can also use MoriTTS in your Python code:
+
+```python
+from src.main import MoriTTS
+
+# Initialize the TTS system
+tts = MoriTTS()
+
+# Synthesize speech
+tts.synthesize(
+    text="Your text here",
+    voice_name="af_bella",
+    output_file="output.wav"
+)
+```
 
 ## License
 
