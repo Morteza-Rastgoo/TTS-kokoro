@@ -8,7 +8,7 @@ NC='\033[0m' # No Color
 
 # Default values
 DEFAULT_VOICE="af_bella"
-DEFAULT_TEXT="Hello, this is a test of the Kokoro TTS system."
+DEFAULT_TEXT="Hello, this is a test of the MoriTTS system."
 DEFAULT_OUTPUT="output.wav"
 VENV_NAME="venv_py311"
 
@@ -37,8 +37,8 @@ detect_os() {
     esac
 }
 
-# Function to install espeak based on OS
-install_espeak() {
+# Function to check and install espeak
+check_espeak() {
     os=$(detect_os)
     case $os in
         macos)
@@ -46,7 +46,7 @@ install_espeak() {
                 print_color "$YELLOW" "Installing espeak using Homebrew..."
                 if ! check_command "brew"; then
                     print_color "$RED" "Homebrew is not installed. Please install it first."
-                    exit 1
+                    return 1
                 fi
                 brew install espeak
             fi
@@ -61,49 +61,74 @@ install_espeak() {
         windows)
             if ! check_command "espeak-ng"; then
                 print_color "$RED" "Please install espeak-ng manually from: https://github.com/espeak-ng/espeak-ng/releases"
-                exit 1
+                return 1
             fi
             ;;
         *)
             print_color "$RED" "Unsupported operating system"
-            exit 1
+            return 1
             ;;
     esac
+    return 0
 }
 
-# Function to setup Python virtual environment
-setup_venv() {
+# Function to check Python version
+check_python() {
+    if ! check_command "python3"; then
+        print_color "$RED" "Python 3 is not installed"
+        return 1
+    fi
+    
+    version=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+    if (( $(echo "$version < 3.7" | bc -l) )); then
+        print_color "$RED" "Python version must be 3.7 or higher (found $version)"
+        return 1
+    fi
+    return 0
+}
+
+# Function to check virtual environment
+check_venv() {
     if [ ! -d "$VENV_NAME" ]; then
         print_color "$YELLOW" "Creating virtual environment..."
         python3 -m venv $VENV_NAME
+        source $VENV_NAME/bin/activate
+        print_color "$YELLOW" "Installing base dependencies..."
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    else
+        source $VENV_NAME/bin/activate
+        # Check if all requirements are met
+        if ! pip freeze | grep -q "torch>="; then
+            print_color "$YELLOW" "Installing missing dependencies..."
+            pip install -r requirements.txt
+        fi
     fi
-    
-    # Activate virtual environment
-    source $VENV_NAME/bin/activate
-    
-    print_color "$YELLOW" "Installing Python dependencies..."
-    pip install -r requirements.txt
+    return 0
 }
 
-# Function to check and download model files
+# Function to check model files
 check_model_files() {
     MODEL_DIR="models/Kokoro-82M"
+    MISSING_FILES=0
+    
     if [ ! -d "$MODEL_DIR" ]; then
-        print_color "$RED" "Model directory not found. Please download the model and voice packs from:"
+        print_color "$RED" "Model directory not found"
+        MISSING_FILES=1
+    elif [ ! -f "$MODEL_DIR/kokoro-v0_19.pth" ]; then
+        print_color "$RED" "Model file not found"
+        MISSING_FILES=1
+    elif [ ! -d "$MODEL_DIR/voices" ]; then
+        print_color "$RED" "Voice packs directory not found"
+        MISSING_FILES=1
+    fi
+    
+    if [ $MISSING_FILES -eq 1 ]; then
+        print_color "$YELLOW" "Please download missing files from:"
         print_color "$YELLOW" "https://huggingface.co/hexgrad/Kokoro-82M"
-        print_color "$YELLOW" "Create $MODEL_DIR directory and place the files there."
-        exit 1
+        return 1
     fi
-    
-    if [ ! -f "$MODEL_DIR/kokoro-v0_19.pth" ]; then
-        print_color "$RED" "Model file not found. Please download kokoro-v0_19.pth"
-        exit 1
-    fi
-    
-    if [ ! -d "$MODEL_DIR/voices" ]; then
-        print_color "$RED" "Voice packs directory not found. Please download voice packs."
-        exit 1
-    fi
+    return 0
 }
 
 # Function to display help
@@ -155,78 +180,38 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Main setup
-print_color "$GREEN" "Starting setup..."
+print_color "$GREEN" "Starting MoriTTS setup..."
 
-# Check Python installation
-if ! check_command "python3"; then
-    print_color "$RED" "Python 3 is not installed. Please install Python 3.7 or higher."
+# Check all requirements
+SETUP_NEEDED=0
+
+print_color "$YELLOW" "Checking Python installation..."
+if ! check_python; then
+    SETUP_NEEDED=1
+fi
+
+print_color "$YELLOW" "Checking espeak installation..."
+if ! check_espeak; then
+    SETUP_NEEDED=1
+fi
+
+print_color "$YELLOW" "Checking virtual environment..."
+if ! check_venv; then
+    SETUP_NEEDED=1
+fi
+
+print_color "$YELLOW" "Checking model files..."
+if ! check_model_files; then
+    SETUP_NEEDED=1
+fi
+
+if [ $SETUP_NEEDED -eq 1 ]; then
+    print_color "$RED" "Please fix the above issues and try again"
     exit 1
 fi
 
-# Install espeak
-install_espeak
-
-# Setup virtual environment
-setup_venv
-
-# Check model files
-check_model_files
-
-# Create temporary Python script
-TMP_SCRIPT=$(mktemp)
-cat > "$TMP_SCRIPT" << EOL
-from model.kokoro_model import KokoroModel
-import torch
-import soundfile as sf
-import numpy as np
-
-def normalize_audio(audio):
-    audio = np.array(audio)
-    max_val = np.abs(audio).max()
-    if max_val > 0:
-        audio = audio / max_val * 0.9
-    return audio
-
-def main():
-    model = KokoroModel()
-    text = """${TEXT}"""
-    print(f"\nInput text: {text}")
-    
-    try:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        base_voicepack = torch.load(f"models/Kokoro-82M/voices/${VOICE}.pt", map_location=device)
-        if len(base_voicepack.shape) == 3:
-            base_voicepack = base_voicepack[0]
-        if len(base_voicepack.shape) == 2:
-            base_voicepack = base_voicepack[0].unsqueeze(0)
-            
-        voicepack = {i: base_voicepack.to(device) for i in range(1, 511)}
-        print(f"Voice pack loaded successfully")
-        
-        audio, phonemes = model.synthesize(text, voicepack)
-        print(f"\nPhonemes: {phonemes}")
-        
-        if audio is None:
-            raise ValueError("Failed to generate audio")
-            
-        audio = normalize_audio(audio)
-        sf.write("${OUTPUT}", audio, 24000)
-        print(f"\nAudio saved to ${OUTPUT}")
-        
-    except Exception as e:
-        print(f"\nError: {str(e)}")
-        if 'base_voicepack' in locals():
-            print(f"Base voice pack shape: {base_voicepack.shape}")
-
-if __name__ == "__main__":
-    main()
-EOL
-
-# Run the script
-print_color "$GREEN" "Running TTS synthesis..."
-python "$TMP_SCRIPT"
-
-# Cleanup
-rm "$TMP_SCRIPT"
+# Run the TTS system
+print_color "$GREEN" "Running MoriTTS..."
+python3 src/main.py -t "$TEXT" -v "$VOICE" -o "$OUTPUT"
 
 print_color "$GREEN" "Done!" 

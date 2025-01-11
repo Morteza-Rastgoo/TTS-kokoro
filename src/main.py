@@ -1,70 +1,84 @@
-from model.kokoro_model import KokoroModel
+"""
+MoriTTS - A text-to-speech system based on neural TTS model
+"""
+
+import sys
 import torch
 import soundfile as sf
 import numpy as np
+from pathlib import Path
+from typing import Dict, Tuple, Optional
+from model.kokoro_model import KokoroModel
 
-def normalize_audio(audio):
-    """Normalize audio to prevent clipping and ensure proper volume."""
-    audio = np.array(audio)
-    max_val = np.abs(audio).max()
-    if max_val > 0:
-        audio = audio / max_val * 0.9  # Leave some headroom
-    return audio
-
-def prepare_voicepack(base_voicepack, device):
-    """Prepare voice pack dictionary for synthesis."""
-    if not isinstance(base_voicepack, torch.Tensor):
-        raise ValueError("Voice pack must be a tensor")
-    
-    # Ensure the voice pack has the correct shape (1, 256)
-    if base_voicepack.shape != (1, 256):
+class MoriTTS:
+    def __init__(self, model_dir: str = "models/Kokoro-82M"):
+        """Initialize MoriTTS with model directory"""
+        self.model_dir = Path(model_dir)
+        self.model = KokoroModel()
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"Loading model on {self.device}...")
+        
+    def load_voice(self, voice_name: str) -> Dict[int, torch.Tensor]:
+        """Load a voice pack and prepare it for synthesis"""
+        voice_path = self.model_dir / "voices" / f"{voice_name}.pt"
+        if not voice_path.exists():
+            raise FileNotFoundError(f"Voice pack not found: {voice_path}")
+            
+        base_voicepack = torch.load(voice_path, map_location=self.device)
         if len(base_voicepack.shape) == 3:
-            # Take the first slice if it's a 3D tensor
             base_voicepack = base_voicepack[0]
         if len(base_voicepack.shape) == 2:
-            # Take the first row if it's a 2D tensor
             base_voicepack = base_voicepack[0].unsqueeze(0)
-        if base_voicepack.shape != (1, 256):
-            raise ValueError(f"Cannot reshape voice pack of shape {base_voicepack.shape} to (1, 256)")
+            
+        return {i: base_voicepack.to(self.device) for i in range(1, 511)}
     
-    # Create a dictionary of voice packs for different lengths
-    voicepack = {}
-    for i in range(1, 511):  # Maximum length is 510 tokens
-        voicepack[i] = base_voicepack.to(device)
+    @staticmethod
+    def normalize_audio(audio: np.ndarray) -> np.ndarray:
+        """Normalize audio to prevent clipping"""
+        audio = np.array(audio)
+        max_val = np.abs(audio).max()
+        if max_val > 0:
+            audio = audio / max_val * 0.9
+        return audio
     
-    return voicepack
+    def synthesize(self, text: str, voice_name: str, output_file: str) -> Tuple[np.ndarray, str]:
+        """Synthesize text to speech using specified voice"""
+        try:
+            voicepack = self.load_voice(voice_name)
+            print(f"Voice pack '{voice_name}' loaded successfully")
+            
+            audio, phonemes = self.model.synthesize(text, voicepack)
+            print(f"\nPhonemes: {phonemes}")
+            
+            if audio is None:
+                raise ValueError("Failed to generate audio")
+                
+            audio = self.normalize_audio(audio)
+            sf.write(output_file, audio, 24000)
+            print(f"\nAudio saved to {output_file}")
+            
+            return audio, phonemes
+            
+        except Exception as e:
+            print(f"\nError during synthesis: {str(e)}")
+            raise
 
 def main():
-    # Initialize the model
-    model = KokoroModel()
+    """CLI interface for MoriTTS"""
+    import argparse
     
-    # Example text
-    text = "Hello, this is a test of the Kokoro TTS system."
-    print(f"\nInput text: {text}")
+    parser = argparse.ArgumentParser(description="MoriTTS - Text-to-Speech Synthesis")
+    parser.add_argument("-t", "--text", default="Hello, this is a test of the MoriTTS system.",
+                      help="Text to synthesize")
+    parser.add_argument("-v", "--voice", default="af_bella",
+                      help="Voice pack to use")
+    parser.add_argument("-o", "--output", default="output.wav",
+                      help="Output WAV file")
     
-    try:
-        # Load voice pack
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        base_voicepack = torch.load("models/Kokoro-82M/voices/am_adam.pt", map_location=device)
-        voicepack = prepare_voicepack(base_voicepack, device)
-        print(f"Voice pack loaded successfully")
-        
-        # Generate speech
-        audio, phonemes = model.synthesize(text, voicepack)
-        print(f"\nPhonemes: {phonemes}")
-        
-        if audio is None:
-            raise ValueError("Failed to generate audio")
-            
-        # Normalize and save the audio
-        audio = normalize_audio(audio)
-        sf.write("output.wav", audio, 24000)
-        print("\nAudio saved to output.wav")
-        
-    except Exception as e:
-        print(f"\nError: {str(e)}")
-        if 'base_voicepack' in locals():
-            print(f"Base voice pack shape: {base_voicepack.shape}")
+    args = parser.parse_args()
+    
+    tts = MoriTTS()
+    tts.synthesize(args.text, args.voice, args.output)
 
 if __name__ == "__main__":
     main() 

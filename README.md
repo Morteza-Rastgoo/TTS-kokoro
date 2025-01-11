@@ -1,6 +1,6 @@
-# TTS-kokoro
+# MoriTTS
 
-A text-to-speech implementation using the Kokoro model, an 82M parameter TTS model that provides high-quality speech synthesis.
+A text-to-speech implementation using a state-of-the-art neural TTS model, providing high-quality speech synthesis.
 
 ## Features
 
@@ -9,6 +9,7 @@ A text-to-speech implementation using the Kokoro model, an 82M parameter TTS mod
 - Easy-to-use command-line interface
 - Cross-platform support (macOS, Linux, Windows)
 - Audio normalization for consistent volume
+- Smart setup process that only installs when needed
 
 ## Prerequisites
 
@@ -20,8 +21,8 @@ A text-to-speech implementation using the Kokoro model, an 82M parameter TTS mod
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Morteza-Rastgoo/TTS-kokoro.git
-cd TTS-kokoro
+git clone https://github.com/yourusername/MoriTTS.git
+cd MoriTTS
 ```
 
 2. Download the model and voice packs:
@@ -35,9 +36,10 @@ chmod +x setup.sh
 ```
 
 The script will:
-- Detect your OS and install required dependencies
-- Set up a Python virtual environment
-- Install Python packages
+- Check if setup is already completed
+- Install required dependencies (if needed)
+- Set up a Python virtual environment (if needed)
+- Install Python packages (if needed)
 - Generate a test audio file
 
 ## Usage
@@ -52,6 +54,7 @@ Options:
   -v, --voice VOICE      Voice pack to use
   -o, --output FILE      Output WAV file
   -h, --help            Show help message
+  --force               Force reinstallation of dependencies
 
 Examples:
   # Use default settings
@@ -62,6 +65,9 @@ Examples:
 
   # Save to a specific file
   ./setup.sh -t "Welcome!" -v af_sarah -o welcome.wav
+
+  # Force reinstallation
+  ./setup.sh --force
 ```
 
 ## Available Voice Packs
@@ -93,4 +99,4 @@ pip install -r requirements.txt
 
 ## License
 
-This project is licensed under the Apache 2.0 License - see the [Kokoro model page](https://huggingface.co/hexgrad/Kokoro-82M) for details. 
+This project is licensed under the Apache 2.0 License. 
